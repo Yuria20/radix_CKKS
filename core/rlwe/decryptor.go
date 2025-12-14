@@ -90,6 +90,8 @@ func (d Decryptor) Decrypt(ct *Ciphertext, pt *Plaintext) {
 	if !ct.IsNTT {
 		ringQ.INTT(pt.Value, pt.Value)
 	}
+
+	//ringQ.INTT(pt.Value, pt.Value)
 }
 
 // WithKey creates a shallow copy of [Decryptor] with a new decryption key, in which all the

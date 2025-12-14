@@ -90,6 +90,88 @@ func (eval Evaluator[T]) Evaluate(input interface{}, p interface{}, targetScale 
 	return opOut, err
 }
 
+// Evaluate is a generic and scheme agnostic method to evaluate polynomials on rlwe.Ciphertexts.
+func (eval Evaluator[T]) Evaluate_shared_basis(input interface{}, p1 interface{}, p2 interface{}, targetScale rlwe.Scale, levelsConsumedPerRescaling int, SimEval SimEvaluator) (opOut *rlwe.Ciphertext, opOut2 *rlwe.Ciphertext, err error) {
+
+	var polyVec PolynomialVector
+	switch p := p1.(type) {
+	case bignum.Polynomial:
+		polyVec = PolynomialVector{Value: []Polynomial{{Polynomial: p, MaxDeg: p.Degree(), Lead: true, Lazy: false}}}
+	case Polynomial:
+		polyVec = PolynomialVector{Value: []Polynomial{p}}
+	case PolynomialVector:
+		polyVec = p
+	default:
+		return nil, nil, fmt.Errorf("cannot Polynomial: invalid polynomial type, must be either bignum.Polynomial, polynomial.Polynomial or polynomial.PolynomialVector, but is %T", p)
+	}
+
+	var polyVec2 PolynomialVector
+	switch p := p2.(type) {
+	case bignum.Polynomial:
+		polyVec2 = PolynomialVector{Value: []Polynomial{{Polynomial: p, MaxDeg: p.Degree(), Lead: true, Lazy: false}}}
+	case Polynomial:
+		polyVec2 = PolynomialVector{Value: []Polynomial{p}}
+	case PolynomialVector:
+		polyVec2 = p
+	default:
+		return nil, nil, fmt.Errorf("cannot Polynomial: invalid polynomial type, must be either bignum.Polynomial, polynomial.Polynomial or polynomial.PolynomialVector, but is %T", p)
+	}
+
+	var powerbasis PowerBasis
+	switch input := input.(type) {
+	case *rlwe.Ciphertext:
+		powerbasis = NewPowerBasis(input, polyVec.Value[0].Basis)
+	case PowerBasis:
+		if input.Value[1] == nil {
+			return nil, nil, fmt.Errorf("cannot evaluatePolyVector: given PowerBasis.Value[1] is empty")
+		}
+		powerbasis = input
+	default:
+		return nil, nil, fmt.Errorf("cannot evaluatePolyVector: invalid input, must be either *rlwe.Ciphertext or *PowerBasis")
+	}
+
+	if level, depth := powerbasis.Value[1].Level(), levelsConsumedPerRescaling*polyVec.Value[0].Depth(); level < depth {
+		return nil, nil, fmt.Errorf("%d levels < %d log(d) -> cannot evaluate poly", level, depth)
+	}
+
+	/* #nosec G115 -- Degree cannot be negative */
+	logDegree := bits.Len64(uint64(polyVec.Value[0].Degree()))
+	logSplit := bignum.OptimalSplit(logDegree)
+
+	var odd, even = false, false
+	for _, p := range polyVec.Value {
+		odd, even = odd || p.IsOdd, even || p.IsEven
+	}
+
+	// Computes all the powers of two with relinearization
+	// This will recursively compute and store all powers of two up to 2^logDegree
+	if err = powerbasis.GenPower(1<<(logDegree-1), false, eval); err != nil {
+		return nil, nil, err
+	}
+
+	// Computes the intermediate powers, starting from the largest, without relinearization if possible
+	for i := (1 << logSplit) - 1; i > 2; i-- {
+		if !(even || odd) || (i&1 == 0 && even) || (i&1 == 1 && odd) {
+			if err = powerbasis.GenPower(i, polyVec.Value[0].Lazy, eval); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+
+	PS := polyVec.PatersonStockmeyerPolynomial(*eval.GetRLWEParameters(), powerbasis.Value[1].Level(), powerbasis.Value[1].Scale, targetScale, SimEval)
+	PS2 := polyVec2.PatersonStockmeyerPolynomial(*eval.GetRLWEParameters(), powerbasis.Value[1].Level(), powerbasis.Value[1].Scale, targetScale, SimEval)
+
+	if opOut, err = eval.EvaluatePatersonStockmeyerPolynomialVector(PS, powerbasis); err != nil {
+		return nil, nil, err
+	}
+
+	if opOut2, err = eval.EvaluatePatersonStockmeyerPolynomialVector(PS2, powerbasis); err != nil {
+		return nil, nil, err
+	}
+
+	return opOut, opOut2, err
+}
+
 // BabyStep is a struct storing the result of a baby-step
 // of the Paterson-Stockmeyer polynomial evaluation algorithm.
 type BabyStep struct {

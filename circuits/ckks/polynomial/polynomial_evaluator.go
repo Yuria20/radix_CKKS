@@ -56,6 +56,44 @@ func (eval Evaluator) Evaluate(ct *rlwe.Ciphertext, p interface{}, targetScale r
 	return eval.Evaluator.Evaluate(ct, phe, targetScale, levelsConsumedPerRescaling, &simEvaluator{eval.Parameters, levelsConsumedPerRescaling})
 }
 
+// Evaluate evaluates a polynomial on the input Ciphertext in ceil(log2(deg+1)) levels.
+// Returns an error if the input ciphertext does not have enough levels to carry out the full polynomial evaluation.
+// Returns an error if something is wrong with the scale.
+//
+// If the polynomial is given in Chebyshev basis, then the user must apply change of basis
+// ct' = scale * ct + offset before the polynomial evaluation to ensure correctness.
+// The values `scale` and `offet` can be obtained from the polynomial with the method .ChangeOfBasis().
+//
+// pol: a *[bignum.Polynomial], *[Polynomial] or *[PolynomialVector]
+// targetScale: the desired output scale. This value shouldn't differ too much from the original ciphertext scale. It can
+// for example be used to correct small deviations in the ciphertext scale and reset it to the default scale.
+func (eval Evaluator) Evaluate_shared_basis(ct *rlwe.Ciphertext, p1 interface{}, p2 interface{}, targetScale rlwe.Scale) (opOut *rlwe.Ciphertext, opOut2 *rlwe.Ciphertext, err error) {
+
+	var phe1 interface{}
+	switch p1 := p1.(type) {
+	case Polynomial:
+		phe1 = polynomial.Polynomial(p1)
+	case PolynomialVector:
+		phe1 = polynomial.PolynomialVector(p1)
+	default:
+		phe1 = p1
+	}
+
+	var phe2 interface{}
+	switch p2 := p2.(type) {
+	case Polynomial:
+		phe2 = polynomial.Polynomial(p2)
+	case PolynomialVector:
+		phe2 = polynomial.PolynomialVector(p2)
+	default:
+		phe2 = p1
+	}
+
+	levelsConsumedPerRescaling := eval.Parameters.LevelsConsumedPerRescaling()
+
+	return eval.Evaluator.Evaluate_shared_basis(ct, phe1, phe2, targetScale, levelsConsumedPerRescaling, &simEvaluator{eval.Parameters, levelsConsumedPerRescaling})
+}
+
 // EvaluateFromPowerBasis evaluates a polynomial using the provided [polynomial.PowerBasis], holding pre-computed powers of X.
 // This method is the same as [Evaluate] except that the encrypted input is a [polynomial.PowerBasis].
 // See [Evaluate] for additional information.

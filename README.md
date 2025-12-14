@@ -1,3 +1,23 @@
+# Improved Radix-based Approximate Homomorphic Encryption for Large Integers via Lightweight Bootstrapped Digit Carry
+
+### 0. Acknowledgement
+Some of the helper functions, particularly those in \texttt{util\_XXX.go}, were written with the assistance of ChatGPT.
+
+### 1. Path to Code
+The code for the experiments is located in the following directory:
+`examples/singleparty/ckks_bootstrapping/slim`
+
+### 2. Reproducing Paper Results
+The `main` function in `main.go` can be used to reproduce the results from **Tables 5 and 6** of our paper.
+
+### 3. Prerequisites
+
+**Plaintext Matrix Generation**
+For the most accurate performance measurements, we strongly recommend pre-generating the necessary plaintext matrix files. Although the test code will automatically create these files if they are not found, the recommended procedure is to run the benchmarks on files that are already present in the directory.
+
+**Memory Requirements**
+We recommend running all experiments on a machine with **128 GB of RAM or more**.
+
 # Lattigo: lattice-based multiparty homomorphic encryption library in Go
 
 <p align="center">

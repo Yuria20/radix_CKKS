@@ -184,11 +184,13 @@ func (eval *Evaluator) initialize(btpParams Parameters) (err error) {
 	// CoeffsToSlots vectors
 	// Change of variable for the evaluation of the Chebyshev polynomial + cancelling factor for the DFT and SubSum + eventual scaling factor for the double angle formula
 
-	scale := eval.BootstrappingParameters.DefaultScale().Float64()
-	offset := eval.Mod1Parameters.ScalingFactor().Float64() / eval.Mod1Parameters.MessageRatio()
+	//scale := eval.BootstrappingParameters.DefaultScale().Float64()
+	//offset := eval.Mod1Parameters.ScalingFactor().Float64() / eval.Mod1Parameters.MessageRatio()
 
 	C2SScaling := new(big.Float).SetFloat64(qDiv / (K * qDiff))
-	StCScaling := new(big.Float).SetFloat64(scale / offset)
+
+	StCScaling := new(big.Float).SetFloat64(1.0)
+	//StCScaling := new(big.Float).SetFloat64(scale / offset)
 
 	if btpParams.CoeffsToSlotsParameters.Scaling == nil {
 		eval.CoeffsToSlotsParameters.Scaling = C2SScaling
@@ -202,6 +204,8 @@ func (eval *Evaluator) initialize(btpParams Parameters) (err error) {
 		eval.SlotsToCoeffsParameters.Scaling = new(big.Float).Mul(btpParams.SlotsToCoeffsParameters.Scaling, StCScaling)
 	}
 
+	fmt.Println("StC Scale : ", eval.SlotsToCoeffsParameters.Scaling)
+	fmt.Println("CtS Scale : ", eval.CoeffsToSlotsParameters.Scaling)
 	if eval.C2SDFTMatrix, err = dft.NewMatrixFromLiteral(params, eval.CoeffsToSlotsParameters, encoder); err != nil {
 		return
 	}
@@ -788,7 +792,50 @@ func (eval Evaluator) EvalMod(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext, er
 // EvalModAndScale applies the homomorphic modular reduction by q and scales the output value (without
 // consuming an additional level).
 func (eval Evaluator) EvalModAndScale(ctIn *rlwe.Ciphertext, scaling complex128) (ctOut *rlwe.Ciphertext, err error) {
-	if ctOut, err = eval.Mod1Evaluator.EvaluateAndScaleNew(ctIn, scaling); err != nil {
+	if ctOut, err = eval.Mod1Evaluator.EvaluateAndScaleNew2(ctIn, scaling, false); err != nil {
+		return nil, err
+	}
+
+	ctOut.Scale = eval.BootstrappingParameters.DefaultScale()
+	return
+}
+
+func (eval Evaluator) EvalExpAndScale_with_vectroized_evaluation(ctIn *rlwe.Ciphertext, scaling complex128, params *ckks.Parameters) (ctOut *rlwe.Ciphertext, err error) {
+
+	// (x+tI,0) => temp : (0, x+tI)
+	temp, err := eval.RotateNew(ctIn, params.MaxSlots()/2)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// ctIn : (x+tI, x+tI)
+	eval.Add(ctIn, temp, ctIn)
+
+	// ctOut : (cos(2pi*x/t), sin(2pi*x/t))
+	if ctOut, err = eval.Mod1Evaluator.EvaluateAndScaleNew3(ctIn, scaling, params, false); err != nil {
+		return nil, err
+	}
+
+	// temp : (sin(2pi*x/t), cos(2pi*x/t))
+	temp, err = eval.RotateNew(ctOut, params.MaxSlots()/2)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// temp : (i*sin(2pi*x/t), i*cos(2pi*x/t))
+	eval.Mul(temp, 1i, temp)
+
+	// ctOut : (exp(2pi*i*x/t), exp(2pi*i*-x/t))
+	eval.Add(ctOut, temp, ctOut)
+
+	ctOut.Scale = eval.BootstrappingParameters.DefaultScale()
+	return
+}
+
+// EvalModAndScale applies the homomorphic modular reduction by q and scales the output value (without
+// consuming an additional level).
+func (eval Evaluator) EvalElseAndScale(ctIn *rlwe.Ciphertext, scaling complex128) (ctOut *rlwe.Ciphertext, err error) {
+	if ctOut, err = eval.Mod1Evaluator.EvaluateAndScaleNew2(ctIn, scaling, true); err != nil {
 		return nil, err
 	}
 
