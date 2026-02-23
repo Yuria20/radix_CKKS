@@ -46,6 +46,8 @@ var flagShort = flag.Bool("short", false, "run the example with a smaller and in
 
 func main() {
 
+	// Set setting = false to pre-generate the required plaintexts.
+	// After that, set setting = true and run the benchmark/experiments.
 	setting := false
 
 	// PolyMult for Bk arithmetic!
@@ -66,7 +68,7 @@ func main() {
 	}
 
 	Test_Bk_bit_length = []int{256, 512, 2048}
-	for i := 2; i < 3; i++ {
+	for i := 0; i < 3; i++ {
 		// Bbox Init
 		var bit_length, logbase int
 		bit_length = Test_Bk_bit_length[i]
