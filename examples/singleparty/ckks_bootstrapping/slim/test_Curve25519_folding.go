@@ -70,7 +70,7 @@ func DecomposeInt64Base(x *big.Int, base int64, k int) []int64 {
 	return digits
 }
 
-func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
+func Test_curve25519_arthmetic(radix_params RParams, setting bool) {
 
 	//==============================================
 	//=== 0) Set Large CKKS paramter  ==============
@@ -86,10 +86,10 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 	// provides a security of 128-bit.
 	LogN := 16
 
-	bit_length := Bbox.bit_length
-	base := Bbox.base
+	bit_length := radix_params.bit_length
+	base := radix_params.B
 	//base_bit := Bbox.base_bit
-	slice_length := Bbox.slice_length
+	slice_length := radix_params.slice_length
 	//log_slice_half := Bbox.log_slice_half
 
 	LogDefaultScale := 48
@@ -101,7 +101,7 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 	qiEvalMod := []int{52, 52, 52, 52, 52, 52, 52, 52} // 6) EvalMod : 8
 	qiCoeffsToSlots := []int{52, 52, 52}               // 52 CoeffsToSlots
 
-	if Bbox.bit_length == 2048 {
+	if radix_params.bit_length == 2048 {
 		qiCircuits = append([]int{48}, qiCircuits...)
 	}
 
@@ -268,11 +268,11 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 	big_two := big.NewInt(int64(2))
 	mod := big_two.Exp(big_two, big.NewInt(255), nil)
 	mod = mod.Sub(mod, big.NewInt(19))
-	fmt.Printf("Large Integer parameter : mod=Curve25519, slice_length=%d, bit_length=%d, batch=%d, lazycarry_iter=%d, carry_iter=%d", slice_length, bit_length, batch, Bbox.lazy_iter[bit_length], Bbox.carry_iter[bit_length])
+	fmt.Printf("Large Integer parameter : bit_length=%d, batch=%d, lazycarry_iter=%d, carry_iter=%d", bit_length, batch, radix_params.lazy_iter, radix_params.logK)
 	fmt.Println()
 	fmt.Println()
 
-	if file, _ := FileExists("DFT_mod_" + strconv.Itoa(slice_length)); file == false {
+	if file, _ := FileExists("precom/DFT_mod_" + strconv.Itoa(slice_length)); file == false {
 		// Generate FFT matrix
 		Normalized_DFT := GenerateSpecialNormalizedDFT(slice_length)
 		Normalized_DFT = MatrixPadding(Normalized_DFT, slice_length, params.MaxSlots())
@@ -288,7 +288,7 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 
 		Plain_DFT := BSGS_plain_Gen(params, slice_length, batch, Lv-1, Diag_DFT, cc)
 
-		if err := SavePlaintextMap("DFT_mod_"+strconv.Itoa(slice_length), Plain_DFT); err != nil {
+		if err := SavePlaintextMap("precom/DFT_mod_"+strconv.Itoa(slice_length), Plain_DFT); err != nil {
 			panic(err)
 		}
 
@@ -299,9 +299,9 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 		runtime.GC()
 	}
 
-	Plain_DFT, err := LoadPlaintextMap("DFT_mod_"+strconv.Itoa(slice_length), params)
+	Plain_DFT, err := LoadPlaintextMap("precom/DFT_mod_"+strconv.Itoa(slice_length), params)
 
-	if file, _ := FileExists("InvDFT_mod_" + strconv.Itoa(slice_length)); file == false {
+	if file, _ := FileExists("precom/InvDFT_mod_" + strconv.Itoa(slice_length)); file == false {
 		InvDFT := GenerateNormalizedInvDFT(slice_length)
 		InvDFT = MatrixPadding(InvDFT, slice_length, params.MaxSlots())
 		Twisted_InvDFT := TwistedMatrix(InvDFT, slice_length, params.MaxSlots())
@@ -313,7 +313,7 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 
 		Plain_InvDFT := BSGS_plain_Gen(params, slice_length, batch, Lv-3, Diag_InvDFT, cc)
 
-		if err := SavePlaintextMap("InvDFT_mod_"+strconv.Itoa(slice_length), Plain_InvDFT); err != nil {
+		if err := SavePlaintextMap("precom/InvDFT_mod_"+strconv.Itoa(slice_length), Plain_InvDFT); err != nil {
 			panic(err)
 		}
 
@@ -324,18 +324,23 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 		runtime.GC()
 	}
 
-	Plain_InvDFT, err := LoadPlaintextMap("InvDFT_mod_"+strconv.Itoa(slice_length), params)
+	Plain_InvDFT, err := LoadPlaintextMap("precom/InvDFT_mod_"+strconv.Itoa(slice_length), params)
+
+	if setting == true {
+		return
+	}
 
 	//fmt.Println(Lv-1, Lv-2)
 	runtime.GC()
 
 	//fmt.Println("hit!")
-	lazy_time := make([]float64, 5)
-	exact_time := make([]float64, 6)
-	min_err := make([]float64, 6)
-	avg_err := make([]float64, 6)
+	iter := 1
+	lazy_time := make([]float64, iter)
+	exact_time := make([]float64, iter)
+	min_err := make([]float64, iter)
+	avg_err := make([]float64, iter)
 
-	for k := 0; k < 5; k++ {
+	for k := 0; k < iter; k++ {
 
 		values1_big := make([]*big.Int, batch)
 		values2_big := make([]*big.Int, batch)
@@ -487,11 +492,11 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 		mult_time := time.Now()
 		var ciphertext *rlwe.Ciphertext
 
-		ciphertext = ExactMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, Bbox, cc)
+		ciphertext = ExactMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, radix_params, cc)
 		//PrintDebug(slice_length, params, ciphertext, twisted_values1, cc.decryptor, cc.encoder)
 		fmt.Print("Cleaning Start...")
 		start := time.Now()
-		ciphertext = Cleaning_with_vectorized_evaluation(ciphertext, Bbox, cc)
+		ciphertext = Cleaning_with_vectorized_evaluation(ciphertext, radix_params, cc)
 		elapsed := time.Since(start)
 		fmt.Println(elapsed)
 		//PrintDebug(slice_length, params, ciphertext, twisted_values1, cc.decryptor, cc.encoder)
@@ -557,7 +562,7 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 			//PrintDebug(slice_length, params, ciphertext, twisted_values1, cc.decryptor, cc.encoder)
 		}
 
-		ciphertext = LazyCarry2Carry(ciphertext, Bbox, cc)
+		ciphertext = LazyCarry2Carry(ciphertext, radix_params, cc)
 		//PrintDebug(slice_length, params, ciphertext, twisted_values1, cc.decryptor, cc.encoder)
 
 		masking = make([]complex128, params.MaxSlots())
@@ -621,9 +626,9 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 
 		lazy_elapsed := time.Since(mult_time)
 
-		ciphertext = LazyCarry2Carry(ciphertext, Bbox, cc)
+		ciphertext = LazyCarry2Carry(ciphertext, radix_params, cc)
 		//PrintDebug(slice_length, params, ciphertext, twisted_values1, cc.decryptor, cc.encoder)
-		ciphertext = Cleaning_with_vectorized_evaluation(ciphertext, Bbox, cc)
+		ciphertext = Cleaning_with_vectorized_evaluation(ciphertext, radix_params, cc)
 		//PrintDebug(slice_length, params, ciphertext, twisted_values1, cc.decryptor, cc.encoder)
 
 		var cipherN *rlwe.Ciphertext
@@ -636,7 +641,7 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 			fmt.Println(err)
 		}
 
-		ciphertext = ConditonalSub(ciphertext, cipherN, Bbox, cc, "curve25519")
+		ciphertext = ConditonalSub(ciphertext, cipherN, radix_params, cc, "curve25519")
 
 		//fmt.Println(ciphertext.Level())
 
@@ -712,7 +717,7 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 				acc += 1.0
 			}
 		}
-		fmt.Printf("Large Integer accuracy : %0.4f", acc/float64(batch))
+		fmt.Printf("Large Integer accuracy : %0.4f\n", acc/float64(batch))
 
 		//fmt.Print("Test(Big) : ")
 		//fmt.Printf("[%d, %d, %d, ... , %d]\n", valuesTest_big[0], valuesTest_big[1], valuesTest_big[2], valuesTest_big[len(valuesTest_big)-1])
@@ -729,16 +734,16 @@ func Test_curve25519_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 	}
 
 	var exact_mean, lazy_mean, min_mean, avg_mean float64
-	for i := 0; i < 5; i++ {
+	for i := 0; i < iter; i++ {
 		lazy_mean += lazy_time[i]
 		exact_mean += exact_time[i]
 		min_mean += min_err[i]
 		avg_mean += avg_err[i]
 	}
-	lazy_mean /= 5.0
-	exact_mean /= 5.0
-	min_mean /= 5.0
-	avg_mean /= 5.0
+	lazy_mean /= float64(iter)
+	exact_mean /= float64(iter)
+	min_mean /= float64(iter)
+	avg_mean /= float64(iter)
 
 	fmt.Println("lazy lat. : ", lazy_mean, " s")
 	fmt.Println("lazy amot.. : ", 1000*lazy_mean/float64(batch), "ms")

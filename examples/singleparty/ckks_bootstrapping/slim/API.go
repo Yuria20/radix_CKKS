@@ -7,60 +7,53 @@ import (
 	"github.com/tuneinsight/lattigo/v6/core/rlwe"
 )
 
-func LazyMult(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func LazyMult(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, radix_params RParams, cc Context) *rlwe.Ciphertext {
 
-	bit_length := Bbox.bit_length
-	base := Bbox.base
+	//bit_length := radix_params.bit_length
+	base := radix_params.B
 
-	slice_length := Bbox.slice_length
+	slice_length := radix_params.slice_length
 
-	values := make([]complex128, cc.params.MaxSlots())
 	var ciphertext *rlwe.Ciphertext
 
 	// LazyCarry
+	ciphertext = PolyMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, radix_params, cc)
 
-	//fmt.Print("PolyMult... ")
-	//PrintDebug(slice_length, *cc.params, ciphertext1, values, cc.decryptor, cc.encoder)
-	ciphertext = PolyMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, Bbox, cc)
-	PrintDebug(slice_length, *cc.params, ciphertext, values, cc.decryptor, cc.encoder)
-	//PrintDebug(slice_length, *cc.params, ciphertext, values, cc.decryptor, cc.encoder)
-
-	for iter := 0; iter < Bbox.lazy_iter[bit_length]; iter++ {
+	for iter := 0; iter < radix_params.lazy_iter; iter++ {
 		fmt.Print("LazyCarry... ")
 		start := time.Now()
 		ciphertext = LazyCarry_with_vectorized_evaluation(base, slice_length, ciphertext, cc)
-		PrintDebug(slice_length, *cc.params, ciphertext, values, cc.decryptor, cc.encoder)
 		elapsed_time := time.Since(start)
 		fmt.Println(elapsed_time)
 	}
 	return ciphertext
 }
 
-func LazyCMult(ciphertext1 *rlwe.Ciphertext, DFT_ptxt *rlwe.Plaintext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func LazyCMult(ciphertext1 *rlwe.Ciphertext, DFT_ptxt *rlwe.Plaintext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, radix_params RParams, cc Context) *rlwe.Ciphertext {
 
-	bit_length := Bbox.bit_length
-	base := Bbox.base
+	//bit_length := radix_params.bit_length
+	base := radix_params.B
 	//base_bit := Bbox.base_bit
-	slice_length := Bbox.slice_length
+	slice_length := radix_params.slice_length
 	//log_slice_half := Bbox.log_slice_half
 
 	var ciphertext *rlwe.Ciphertext
 
 	// LazyCarry
-	ciphertext = PolyCMult(ciphertext1, DFT_ptxt, Plain_DFT, Plain_InvDFT, Bbox, cc)
+	ciphertext = PolyCMult(ciphertext1, DFT_ptxt, Plain_DFT, Plain_InvDFT, radix_params, cc)
 
-	for iter := 0; iter < Bbox.lazy_iter[bit_length]; iter++ {
+	for iter := 0; iter < radix_params.lazy_iter; iter++ {
 		ciphertext = LazyCarry_with_vectorized_evaluation(base, slice_length, ciphertext, cc)
 	}
 	return ciphertext
 }
 
-func LazyCarry2Carry(ciphertext *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func LazyCarry2Carry(ciphertext *rlwe.Ciphertext, Bbox RParams, cc Context) *rlwe.Ciphertext {
 	//bit_length := Bbox.bit_length
-	base := Bbox.base
+	base := Bbox.B
 	//base_bit := Bbox.base_bit
 	slice_length := Bbox.slice_length
-	log_slice_half := Bbox.log_slice_half
+	log_slice_half := Bbox.logK
 
 	var ct_symbol, ct_carry *rlwe.Ciphertext
 	ct_symbol = ciphertext.CopyNew()
@@ -73,8 +66,6 @@ func LazyCarry2Carry(ciphertext *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc
 	elapsed_time := time.Since(start)
 	fmt.Println(elapsed_time)
 
-	//values := make([]complex128, cc.params.MaxSlots())
-	//PrintDebug(slice_length, *cc.params, ciphertext, values, cc.decryptor, cc.encoder)
 	start = time.Now()
 
 	ct_carry = LazyCarryToCarry(base, log_slice_half, slice_length, ct_symbol, ct_carry, cc)
@@ -84,20 +75,20 @@ func LazyCarry2Carry(ciphertext *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc
 	return ciphertext
 }
 
-func ExactCMult(ciphertext1 *rlwe.Ciphertext, DFT_ptxt *rlwe.Plaintext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func ExactCMult(ciphertext1 *rlwe.Ciphertext, DFT_ptxt *rlwe.Plaintext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, radix_params RParams, cc Context) *rlwe.Ciphertext {
 
-	bit_length := Bbox.bit_length
-	base := Bbox.base
+	//bit_length := radix_params.bit_length
+	base := radix_params.B
 	//base_bit := Bbox.base_bit
-	slice_length := Bbox.slice_length
-	log_slice_half := Bbox.log_slice_half
+	slice_length := radix_params.slice_length
+	log_slice_half := radix_params.logK
 
 	var ciphertext *rlwe.Ciphertext
 
 	// LazyCarry
-	ciphertext = PolyCMult(ciphertext1, DFT_ptxt, Plain_DFT, Plain_InvDFT, Bbox, cc)
+	ciphertext = PolyCMult(ciphertext1, DFT_ptxt, Plain_DFT, Plain_InvDFT, radix_params, cc)
 
-	for iter := 0; iter < Bbox.lazy_iter[bit_length]; iter++ {
+	for iter := 0; iter < radix_params.lazy_iter; iter++ {
 		fmt.Print("LazyCarry... ")
 		start := time.Now()
 		ciphertext = LazyCarry_with_vectorized_evaluation(base, slice_length, ciphertext, cc)
@@ -122,21 +113,21 @@ func ExactCMult(ciphertext1 *rlwe.Ciphertext, DFT_ptxt *rlwe.Plaintext, Plain_DF
 	return ciphertext
 }
 
-func ExactMult(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func ExactMult(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Plain_DFT map[int]*rlwe.Plaintext, Plain_InvDFT map[int]*rlwe.Plaintext, radix_params RParams, cc Context) *rlwe.Ciphertext {
 
-	bit_length := Bbox.bit_length
-	base := Bbox.base
+	//bit_length := radix_params.bit_length
+	base := radix_params.B
 	//base_bit := Bbox.base_bit
-	slice_length := Bbox.slice_length
-	log_slice_half := Bbox.log_slice_half
+	slice_length := radix_params.slice_length
+	log_slice_half := radix_params.logK
 
 	var ciphertext *rlwe.Ciphertext
 
 	// LazyCarry
 
-	ciphertext = PolyMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, Bbox, cc)
+	ciphertext = PolyMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, radix_params, cc)
 
-	for iter := 0; iter < Bbox.lazy_iter[bit_length]; iter++ {
+	for iter := 0; iter < radix_params.lazy_iter; iter++ {
 		fmt.Print("LazyCarry... ")
 		start := time.Now()
 		ciphertext = LazyCarry_with_vectorized_evaluation(base, slice_length, ciphertext, cc)
@@ -165,13 +156,13 @@ func ExactMult(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Plain
 	return ciphertext
 }
 
-func Comparison(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func Comparison(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Bbox RParams, cc Context) *rlwe.Ciphertext {
 
 	//bit_length := Bbox.bit_length
-	base := Bbox.base
+	base := Bbox.B
 	//base_bit := Bbox.base_bit
 	slice_length := Bbox.slice_length
-	log_slice_half := Bbox.log_slice_half
+	log_slice_half := Bbox.logK
 	MAX_SLOT := cc.params.MaxSlots()
 	BATCH := MAX_SLOT / slice_length
 	var ciphertext *rlwe.Ciphertext
@@ -219,13 +210,13 @@ func Comparison(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Bbox
 	return ct_carry
 }
 
-func ConditonalSub(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc Context, tag string) *rlwe.Ciphertext {
+func ConditonalSub(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, Bbox RParams, cc Context, tag string) *rlwe.Ciphertext {
 
 	//bit_length := Bbox.bit_length
-	base := Bbox.base
+	base := Bbox.B
 	//base_bit := Bbox.base_bit
 	slice_length := Bbox.slice_length
-	log_slice_half := Bbox.log_slice_half
+	log_slice_half := Bbox.logK
 	MAX_SLOT := cc.params.MaxSlots()
 	BATCH := MAX_SLOT / slice_length
 	var ciphertext *rlwe.Ciphertext
@@ -260,16 +251,12 @@ func ConditonalSub(ciphertext1 *rlwe.Ciphertext, ciphertext2 *rlwe.Ciphertext, B
 
 	ct_carry = LazyCarryToCarry_negate(base, log_slice_half, slice_length, ct_symbol, ct_carry, cc)
 	//PrintDebug(slice_length, *cc.params, ct_carry, twisted_masking, cc.decryptor, cc.encoder)
-	fmt.Print("Cleaning... ")
-	start = time.Now()
+
 	//ct_carry = Cleaning(ct_carry, Bbox, cc)
 	ciphertext = ct_carry.CopyNew()
 
 	// using modular arithmetic
 	//debug := ct_carry.CopyNew()
-
-	elapsed_time = time.Since(start)
-	fmt.Println(elapsed_time)
 
 	masking = make([]complex128, MAX_SLOT)
 	for i := 0; i < BATCH; i++ {

@@ -38,7 +38,7 @@ func GenPrime(bits int) (*big.Int, error) {
 	return crand.Prime(crand.Reader, bits)
 }
 
-func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
+func Test_montREDC(radix_params RParams, setting bool) {
 
 	//==============================================
 	//=== 0) Set Large CKKS paramter  ==============
@@ -54,10 +54,10 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 	// provides a security of 128-bit.
 	LogN := 16
 
-	bit_length := Bbox.bit_length
-	base := Bbox.base
+	bit_length := radix_params.bit_length
+	base := radix_params.B
 	//base_bit := Bbox.base_bit
-	slice_length := Bbox.slice_length
+	slice_length := radix_params.slice_length
 	//log_slice_half := Bbox.log_slice_half
 
 	var LogDefaultScale int
@@ -65,7 +65,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 	var Lv int
 	var LogQ []int
 
-	if Bbox.base == 16 {
+	if radix_params.B == 16 {
 		// Message 오버플로우 방지용 moduli
 		LogDefaultScale = 48
 
@@ -78,10 +78,10 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 		qiEvalMod := []int{52, 52, 52, 52, 52, 52, 52, 52} // 6) EvalMod : 8
 		qiCoeffsToSlots := []int{52, 52, 52}               // 53 CoeffsToSlots
 
-		if 128 <= Bbox.bit_length {
+		if 128 <= radix_params.bit_length {
 			qiCircuits = append([]int{48}, qiCircuits...)
 		}
-		if 2048 <= Bbox.bit_length {
+		if 2048 <= radix_params.bit_length {
 			qiCircuits = append([]int{48}, qiCircuits...)
 		}
 
@@ -98,7 +98,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 	var err error
 	var params ckks.Parameters
-	if Bbox.base == 16 {
+	if radix_params.B == 16 {
 		params, err = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
 			LogN:            LogN,                      // Log2 of the ring degree
 			LogQ:            LogQ,                      // Log2 of the ciphertext modulus
@@ -139,7 +139,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 	// Parameters of the homomorphic modular reduction x mod 1
 	var Mod1ParametersLiteral mod1.ParametersLiteral
-	if Bbox.base == 16 {
+	if radix_params.B == 16 {
 		Mod1ParametersLiteral = mod1.ParametersLiteral{
 			LevelQ:          params.MaxLevel() - CoeffsToSlotsParameters.Depth(true),
 			LogScale:        52,               // Matches qiEvalMod
@@ -270,7 +270,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 	//batch := int(float64(params.MaxSlots()) / float64(slice_length))
 	//mod, _ := GenPrime(bit_length / 2)
 	mod1, _ := GenPrime(1024)
-	mod2, _ := GenPrime(1024)
+	mod2, _ := GenPrime(1023)
 	mod := big.NewInt(0.0).Mul(mod1, mod2)
 
 	//primeStr := "20001030500114365578276172632409225656496377638593185792480199378537058893741203912381988890014108377553928167405028407253810959620542493980998363450945858435827230425360559865510737689270866756515652866551976510105545537970228013696617490642319004379799051093313365944568373216127132036998920433135243233125809277778869287991992773691437819178746812300604717045712177799445705659577853791653666000889181040230645767816513604639136008269498511864003611922378089262260835535463621902062288442797058009859720284517772755190922161553252699460863880033665341687790834810005136108173760509308004664781377968493112574251293"
@@ -281,11 +281,11 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 	//fmt.Println("hit!")
 
-	fmt.Printf("Large Integer parameter : bit_length=%d, batch=%d, lazycarry_iter=%d, carry_iter=%d", bit_length, batch, Bbox.lazy_iter[bit_length], Bbox.carry_iter[bit_length])
+	fmt.Printf("Large Integer parameter : bit_length=%d, batch=%d, lazycarry_iter=%d, carry_iter=%d", bit_length, batch, radix_params.lazy_iter, radix_params.logK)
 	fmt.Println()
 	fmt.Println()
 
-	if file, _ := FileExists("DFT_mod_" + strconv.Itoa(slice_length)); file == false {
+	if file, _ := FileExists("precom/DFT_mod_" + strconv.Itoa(slice_length)); file == false {
 		// Generate FFT matrix
 		Normalized_DFT := GenerateSpecialNormalizedDFT(slice_length)
 		Normalized_DFT = MatrixPadding(Normalized_DFT, slice_length, params.MaxSlots())
@@ -301,7 +301,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 		Plain_DFT := BSGS_plain_Gen(params, slice_length, batch, Lv-1, Diag_DFT, cc)
 
-		if err := SavePlaintextMap("DFT_mod_"+strconv.Itoa(slice_length), Plain_DFT); err != nil {
+		if err := SavePlaintextMap("precom/DFT_mod_"+strconv.Itoa(slice_length), Plain_DFT); err != nil {
 			panic(err)
 		}
 
@@ -313,9 +313,9 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 	}
 
 	// 로드(동일한 params 필요)
-	Plain_DFT, err := LoadPlaintextMap("DFT_mod_"+strconv.Itoa(slice_length), params)
+	Plain_DFT, err := LoadPlaintextMap("precom/DFT_mod_"+strconv.Itoa(slice_length), params)
 
-	if file, _ := FileExists("InvDFT_mod_" + strconv.Itoa(slice_length)); file == false {
+	if file, _ := FileExists("precom/InvDFT_mod_" + strconv.Itoa(slice_length)); file == false {
 		InvDFT := GenerateNormalizedInvDFT(slice_length)
 		InvDFT = MatrixPadding(InvDFT, slice_length, params.MaxSlots())
 		Twisted_InvDFT := TwistedMatrix(InvDFT, slice_length, params.MaxSlots())
@@ -327,7 +327,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 		Plain_InvDFT := BSGS_plain_Gen(params, slice_length, batch, Lv-3, Diag_InvDFT, cc)
 
-		if err := SavePlaintextMap("InvDFT_mod_"+strconv.Itoa(slice_length), Plain_InvDFT); err != nil {
+		if err := SavePlaintextMap("precom/InvDFT_mod_"+strconv.Itoa(slice_length), Plain_InvDFT); err != nil {
 			panic(err)
 		}
 
@@ -338,16 +338,20 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 		runtime.GC()
 	}
 
-	Plain_InvDFT, err := LoadPlaintextMap("InvDFT_mod_"+strconv.Itoa(slice_length), params)
+	Plain_InvDFT, err := LoadPlaintextMap("precom/InvDFT_mod_"+strconv.Itoa(slice_length), params)
 	//debug.FreeOSMemory()
 
-	fmt.Println("hit!")
-	//lazy_time := make([]float64, 5)
-	exact_time := make([]float64, 6)
-	min_err := make([]float64, 6)
-	avg_err := make([]float64, 6)
+	if setting == true {
+		return
+	}
 
-	for k := 0; k < 6; k++ {
+	//lazy_time := make([]float64, 5)
+	iter := 5
+	exact_time := make([]float64, iter)
+	min_err := make([]float64, iter)
+	avg_err := make([]float64, iter)
+
+	for k := 0; k < iter; k++ {
 
 		values1_big := make([]*big.Int, batch)
 		values2_big := make([]*big.Int, batch)
@@ -556,11 +560,6 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 		//==============================================
 		//=== 2) Mult Large Integer : MultPoly =========
 		//==============================================
-		if k == 0 {
-			fmt.Println("warm-up round")
-		} else {
-			fmt.Printf("%d th iteration\n", k)
-		}
 		fmt.Println("Multiplication Start!")
 
 		mult_time := time.Now()
@@ -572,14 +571,14 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 		//fmt.Print("ExactMult... ")
 		//start := time.Now()
-		T = ExactMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, Bbox, cc)
+		T = ExactMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, radix_params, cc)
 		//elapsed_time := time.Since(start)
 		//fmt.Println(elapsed_time)
 		//PrintDebug(slice_length, params, T, value1, decryptor, encoder)
 
 		fmt.Print("Cleaning... ")
 		start := time.Now()
-		T = Cleaning_with_vectorized_evaluation(T, Bbox, cc)
+		T = Cleaning_with_vectorized_evaluation(T, radix_params, cc)
 		elapsed_time := time.Since(start)
 		fmt.Println(elapsed_time)
 		//PrintDebug(slice_length, params, T, value1, decryptor, encoder)
@@ -620,11 +619,11 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 		//fmt.Print("ExactMult... ")
 
-		m = ExactCMult(Tmod, plain_Ninv, Plain_DFT, Plain_InvDFT, Bbox, cc)
+		m = ExactCMult(Tmod, plain_Ninv, Plain_DFT, Plain_InvDFT, radix_params, cc)
 		//PrintDebug(slice_length, params, m, value1, decryptor, encoder)
 		fmt.Print("Cleaning... ")
 		start = time.Now()
-		m = Cleaning_with_vectorized_evaluation(m, Bbox, cc)
+		m = Cleaning_with_vectorized_evaluation(m, radix_params, cc)
 		elapsed_time = time.Since(start)
 		fmt.Println(elapsed_time)
 		//PrintDebug(slice_length, params, m, value1, decryptor, encoder)
@@ -646,7 +645,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 		//fmt.Print("ExactMult... ")
 		//start = time.Now()
-		m = ExactCMult(m, plain_N, Plain_DFT, Plain_InvDFT, Bbox, cc)
+		m = ExactCMult(m, plain_N, Plain_DFT, Plain_InvDFT, radix_params, cc)
 		//elapsed_time = time.Since(start)
 		//fmt.Println(elapsed_time)
 		//PrintDebug(slice_length, params, m, value1, decryptor, encoder)
@@ -658,7 +657,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 		fmt.Print("Carry... ")
 		start = time.Now()
-		ciphertext = LazyCarry2Carry(ciphertext, Bbox, cc)
+		ciphertext = LazyCarry2Carry(ciphertext, radix_params, cc)
 		elapsed_time = time.Since(start)
 		fmt.Println(elapsed_time)
 		//PrintDebug(slice_length, params, ciphertext, value1, decryptor, encoder)
@@ -668,7 +667,7 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 
 		fmt.Print("Cleaning... ")
 		start = time.Now()
-		ciphertext = Cleaning_with_vectorized_evaluation(ciphertext, Bbox, cc)
+		ciphertext = Cleaning_with_vectorized_evaluation(ciphertext, radix_params, cc)
 		elapsed_time = time.Since(start)
 		fmt.Println(elapsed_time)
 
@@ -706,16 +705,12 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 			fmt.Println(err)
 		}
 
-		fmt.Print("Conditonal sub... ")
-		start = time.Now()
-
 		//var dbg *rlwe.Ciphertext
 		//dbg = ciphertext.CopyNew()
 		//PrintDebug(slice_length, params, dbg, value1, decryptor, encoder)
 		//PrintDebug(slice_length, params, cipherN, value1, decryptor, encoder)
-		ciphertext = ConditonalSub(ciphertext, cipherN, Bbox, cc, "std")
-		elapsed_time = time.Since(start)
-		fmt.Println(elapsed_time)
+		ciphertext = ConditonalSub(ciphertext, cipherN, radix_params, cc, "std")
+
 		//fmt.Println(ciphertext.Level())
 
 		//PrintDebug(slice_length, params, ciphertext, value1, decryptor, encoder)
@@ -818,16 +813,16 @@ func Test_montREDC(Bbox Bk_Arithmetic_toolbox) {
 	}
 
 	var exact_mean, min_mean, avg_mean float64
-	for i := 0; i < 5; i++ {
+	for i := 0; i < iter; i++ {
 		//lazy_mean += lazy_time[i]
 		exact_mean += exact_time[i]
 		min_mean += min_err[i]
 		avg_mean += avg_err[i]
 	}
 	//lazy_mean /= 5.0
-	exact_mean /= 5.0
-	min_mean /= 5.0
-	avg_mean /= 5.0
+	exact_mean /= float64(iter)
+	min_mean /= float64(iter)
+	avg_mean /= float64(iter)
 
 	//fmt.Println("lazy lat. : ", lazy_mean, " s")
 	//fmt.Println("lazy amot.. : ", 1000*lazy_mean/float64(batch), "ms")

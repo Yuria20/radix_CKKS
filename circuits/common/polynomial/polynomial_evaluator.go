@@ -43,7 +43,9 @@ func (eval Evaluator[T]) Evaluate(input interface{}, p interface{}, targetScale 
 	var powerbasis PowerBasis
 	switch input := input.(type) {
 	case *rlwe.Ciphertext:
+
 		powerbasis = NewPowerBasis(input, polyVec.Value[0].Basis)
+
 	case PowerBasis:
 		if input.Value[1] == nil {
 			return nil, fmt.Errorf("cannot evaluatePolyVector: given PowerBasis.Value[1] is empty")
@@ -188,13 +190,11 @@ func (eval Evaluator[T]) EvaluatePatersonStockmeyerPolynomialVector(poly Paterso
 
 	// Small steps
 	for i := range babySteps {
-
 		// eval & cg are not thread-safe
 		if babySteps[split-i-1], err = eval.EvaluateBabyStep(i, poly, pb); err != nil {
 			return nil, fmt.Errorf("cannot EvaluateBabyStep: %w", err)
 		}
 	}
-
 	// Loops as long as there is more than one sub-polynomial
 	for len(babySteps) != 1 {
 

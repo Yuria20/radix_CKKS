@@ -22,29 +22,15 @@ func LazyCarry(base int, slice_length int, ciphertext *rlwe.Ciphertext, cc Conte
 	var ct_mod, ct_Q *rlwe.Ciphertext
 	var temp *rlwe.Ciphertext
 	temp = ciphertext.CopyNew()
-	//value := make([]complex128, params.MaxSlots())
-
-	//fmt.Print("Before Lazycarry")
-	//PrintDebug(*params, ciphertext, value, cc.decryptor, cc.encoder)
 
 	// Step 1 : SlotsToCoeffs (Homomorphic decoding)
 	if ciphertext.Level() > 4 {
 		btp.DropLevel(ciphertext, ciphertext.Level()-4)
 	}
 
-	//fmt.Println("(In)LogScale : ", ciphertext.LogScale())
-
 	if ciphertext, err = btp.SlotsToCoeffs(ciphertext, nil); err != nil {
 		panic(err)
 	}
-
-	//fmt.Println("(StC)LogScale : ", ciphertext.LogScale())
-	//fmt.Println("(ScaleDown)LogScale : ", ciphertext.Level())
-
-	// Step 2: scale to q/|m|
-	//if ciphertext, _, err = btp.ScaleDown(ciphertext); err != nil {
-	//	panic(err)
-	//}
 
 	btp.SetScale(ciphertext, rlwe.NewScale(float64(params.Q()[0])/(float64(base))))
 
@@ -65,17 +51,13 @@ func LazyCarry(base int, slice_length int, ciphertext *rlwe.Ciphertext, cc Conte
 	if real, imag, err = btp.CoeffsToSlots(ciphertext); err != nil {
 		panic(err)
 	}
-	//fmt.Println("(CtS)LogScale : ", ciphertext.LogScale())
+
 	eval.Conjugate(real, imag)
 	eval.Add(real, imag, real)
 
-	// Step 6 : EvalExp (Homomorphic modular reduction)
-	start := time.Now()
 	if imag, err = btp.EvalModAndScale(real, 2*math.Pi/complex(float64(base), 0.0)); err != nil {
 		panic(err)
 	}
-	elapsed := time.Since(start)
-	fmt.Println("EvalExp(cos) :", elapsed)
 
 	if real, err = btp.EvalElseAndScale(real, 2*math.Pi/complex(float64(base), 0.0)); err != nil {
 		panic(err)
@@ -89,7 +71,6 @@ func LazyCarry(base int, slice_length int, ciphertext *rlwe.Ciphertext, cc Conte
 	if err = btp.Evaluator.Add(real, imag, ciphertext); err != nil {
 		panic(err)
 	}
-	//fmt.Println("(EvalExp)LogScale : ", ciphertext.LogScale())
 
 	// Instantiates the polynomial evaluator
 	polyEval := polynomial.NewEvaluator(*params, eval)
@@ -97,31 +78,19 @@ func LazyCarry(base int, slice_length int, ciphertext *rlwe.Ciphertext, cc Conte
 	var polys polynomial.Polynomial
 	var eval_poly bignum.Polynomial
 
-	//start := time.Now()
 	eval_poly = bignum.NewPolynomial(0, HermiteInterpolation_exp2id(base, 2*base-1), nil)
-	//t := time.Since(start)
-	//fmt.Println(t)
 
 	if polys = polynomial.NewPolynomial(eval_poly); err != nil {
 		panic(err)
 	}
 
 	// [z]_b is computed
-	start = time.Now()
 	ct_mod, _ = polyEval.Evaluate(ciphertext, polys, temp.Scale)
-	elapsed = time.Since(start)
-	fmt.Println("LUT :", elapsed)
-
-	//return ct_mod
-	//fmt.Println("(LUT)LogScale : ", ct_mod.LogScale())
 
 	// Q_b(z) is computed
-	//fmt.Println(temp.Scale.Float64())
-	//fmt.Println(ct_mod.Scale.Float64())
 	ct_Q, _ = eval.SubNew(temp, ct_mod)
 
 	eval.Rotate(ct_Q, -1*params.MaxSlots()/slice_length, ct_Q)
-	//eval.Rotate(ct_Q, -1, ct_Q)
 
 	// make masking vector
 	masking := make([]complex128, params.MaxSlots())
@@ -149,16 +118,6 @@ func LazyCarry(base int, slice_length int, ciphertext *rlwe.Ciphertext, cc Conte
 	eval.SetScale(ct_mod, params.DefaultScale())
 	eval.Add(ct_mod, ct_Q, ciphertext)
 
-	//eval.MulRelin(ciphertext, masking, ciphertext)
-	//eval.Rescale(ciphertext, ciphertext)
-	//fmt.Println("(mod + Q )LogScale : ", ct_mod.LogScale())
-
-	//fmt.Print("after LazyCarry")
-	//PrintDebug(*params, ciphertext, value, cc.decryptor, cc.encoder)
-
-	//fmt.Println("Level after bootstrapping : ", ciphertext.Level())
-	//fmt.Println("Done")
-
 	return ciphertext
 }
 
@@ -183,7 +142,6 @@ func LazyCarry_with_vectorized_evaluation(base int, slice_length int, ciphertext
 		panic(err)
 	}
 
-	fmt.Println("base : ", base)
 	btp.SetScale(ciphertext, rlwe.NewScale(float64(params.Q()[0])/(float64(base))))
 
 	// Step 3 : Extend the basis from q to Q
@@ -263,7 +221,6 @@ func LazyCarry_with_vectorized_evaluation(base int, slice_length int, ciphertext
 	eval.MulRelin(ct_Q, pt, ct_Q)
 	eval.Rescale(ct_Q, ct_Q)
 	ct_Q.Scale.Value.Set(big.NewFloat(float64(params.DefaultScale().Float64())))
-	//PrintDebug(slice_length, *params, ct_Q, value, cc.decryptor, cc.encoder)
 
 	eval.SetScale(ct_mod, params.DefaultScale())
 	eval.Add(ct_mod, ct_Q, ciphertext)
@@ -1219,7 +1176,7 @@ func CleaningSymbol_with_vectorized_evaluation(base int, slice_length int, ct_sy
 	//PrintDebug(slice_length, *params, real, value, cc.decryptor, cc.encoder)
 
 	//fmt.Print("Before Symbol bootstrapping")
-	//PrintDebug(*params, imag, value, cc.decryptor, cc.encoder)
+	//PrintDebug(slice_length, *params, imag, value, cc.decryptor, cc.encoder)
 
 	//fmt.Println("Scale : ", real.Scale.Uint64())
 	//fmt.Println("Scale : ", imag.Scale.Uint64())
@@ -1243,12 +1200,12 @@ func CleaningSymbol_with_vectorized_evaluation(base int, slice_length int, ct_sy
 	return ct_symbol
 }
 
-func Cleaning(ciphertext *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func Cleaning(ciphertext *rlwe.Ciphertext, Bbox RParams, cc Context) *rlwe.Ciphertext {
 	var err error
 	btp := cc.btp
 	params := cc.params
 	eval := cc.eval
-	base := Bbox.base
+	base := Bbox.B
 
 	// Step 0: Some circuit in the slots domain
 	if ciphertext.Level() > 4 {
@@ -1334,12 +1291,12 @@ func Cleaning(ciphertext *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc Contex
 	return ciphertext
 }
 
-func Cleaning_with_vectorized_evaluation(ciphertext *rlwe.Ciphertext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func Cleaning_with_vectorized_evaluation(ciphertext *rlwe.Ciphertext, Bbox RParams, cc Context) *rlwe.Ciphertext {
 	var err error
 	btp := cc.btp
 	params := cc.params
 	eval := cc.eval
-	base := Bbox.base
+	base := Bbox.B
 
 	// Step 0: Some circuit in the slots domain
 	if ciphertext.Level() > 4 {

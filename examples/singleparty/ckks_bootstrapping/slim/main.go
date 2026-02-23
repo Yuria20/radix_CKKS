@@ -46,245 +46,108 @@ var flagShort = flag.Bool("short", false, "run the example with a smaller and in
 
 func main() {
 
+	setting := false
+
 	// PolyMult for Bk arithmetic!
 	Test_Bk_bit_length := []int{16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
 	for i := 0; i < 8; i++ {
 		// Bbox Init
-		var bit_length, base int
+		var bit_length, logbase int
 		bit_length = Test_Bk_bit_length[i]
-		if bit_length == 16 {
-			base = 16
-		} else {
-			base = 256
-		}
+		logbase = 4
 
-		var Bbox Bk_Arithmetic_toolbox
-		Bbox.Init(bit_length, base)
-		for j := 0; j < 1; j++ {
-			fmt.Println("=======================================================")
-			fmt.Printf("============ Bk arithmetic Test : %d bit ============\n", bit_length)
-			fmt.Println("=======================================================")
-			Test_Bk_arthmetic(Bbox)
-		}
+		var Bbox RParams
+		Bbox.Init(false, bit_length, logbase)
+		break
+		fmt.Println("=======================================================")
+		fmt.Printf("============ Bk arithmetic Test : %d bit ============\n", bit_length)
+		fmt.Println("=======================================================")
+		Test_Bk_arthmetic_B16(Bbox, setting)
 	}
 
-	return
-
-	Test_Bk_bit_length = []int{512, 1024, 4096}
-	for i := 0; i < 3; i++ {
+	Test_Bk_bit_length = []int{256, 512, 2048}
+	for i := 2; i < 3; i++ {
 		// Bbox Init
-		var bit_length, base int
+		var bit_length, logbase int
 		bit_length = Test_Bk_bit_length[i]
-		if bit_length == 16 {
-			base = 16
+		logbase = 4
+
+		var radix_params RParams
+		radix_params.Init(true, bit_length, logbase)
+
+		// Test Start
+		if i == 0 {
+			fmt.Println("=======================================================")
+			fmt.Printf("=============== Curve25519 arithmetic Test ==============\n")
+			fmt.Println("=======================================================")
+			Test_curve25519_arthmetic(radix_params, setting)
+		} else if i == 1 {
+			fmt.Println("=======================================================")
+			fmt.Printf("================ P-384 arithmetic Test== ==============\n")
+			fmt.Println("=======================================================")
+			Test_P384_baseREDC(radix_params, setting)
 		} else {
-			base = 256
-		}
-
-		var Bbox Bk_Arithmetic_toolbox
-		//Bbox.Init(bit_length, base)
-		Bbox.InitModular(bit_length, base)
-		for j := 0; j < 1; j++ {
-			// Test Start
-			if i == 0 {
-				Test_curve25519_arthmetic(Bbox)
-			} else if i == 1 {
-				Test_P384_baseREDC(Bbox)
-			} else {
-				Test_montREDC(Bbox)
-			}
+			fmt.Println("=======================================================")
+			fmt.Printf("============== Montogmery arithmetic Test ==============\n")
+			fmt.Println("=======================================================")
+			Test_montREDC(radix_params, setting)
 		}
 	}
 
 	return
 
-	// Modular Aritmetic!
-
-	//fmt.Println("=======================================================")
-	//fmt.Printf("=========== Zp arithmetic Test : Curve25519 ===========\n")
-	//fmt.Println("=======================================================")
-	var Bbox Bk_Arithmetic_toolbox
-	Bbox.InitModular(512, 16)
-	Test_curve25519_arthmetic(Bbox)
-
-	fmt.Println("=======================================================")
-	fmt.Printf("=========== Zp arithmetic Test : RSA2048 ===========\n")
-	fmt.Println("=======================================================")
-	//var Bbox Bk_Arithmetic_toolbox
-	//Bbox.InitRSA(2048, 16)
-	Test_montREDC(Bbox)
-
-	return
-
 }
 
-type Bk_Arithmetic_toolbox struct {
-	bit_length     int
-	base           int
-	base_bit       int
-	slice_length   int
-	log_slice_half int
+type RParams struct {
+	// type
+	ismod bool
 
-	lazy_iter  map[int]int
-	carry_iter map[int]int
+	// radix parameter
+	bit_length   int
+	B            int
+	logB         int
+	K            int
+	slice_length int
+	logK         int
+
+	lazy_iter int
 }
 
-func (Bbox *Bk_Arithmetic_toolbox) Init(bit_length int, base int) {
+func (radix_params *RParams) Init(ismod bool, bit_length int, logB int) {
 
-	Bbox.bit_length = bit_length
-	if bit_length == 16 {
-		Bbox.base_bit = 4
+	radix_params.ismod = ismod
+
+	if radix_params.ismod == true {
+		radix_params.bit_length = 2 * bit_length
 	} else {
-		Bbox.base_bit = 8
+		radix_params.bit_length = bit_length
 	}
 
-	Bbox.base_bit = 4
+	radix_params.logB = logB
+	radix_params.B = 1 << logB
 
-	Bbox.base = 1 << Bbox.base_bit
+	radix_params.K = radix_params.bit_length / radix_params.logB
+	radix_params.slice_length = 2 * radix_params.K
+	radix_params.logK = int(math.Log2(float64(radix_params.K)))
 
-	Bbox.lazy_iter = make(map[int]int, 9)
-	Bbox.carry_iter = make(map[int]int, 9)
+	compute_lazycarry_iter := func(K int, B int, ismod bool) int {
 
-	if Bbox.base_bit == 4 {
-		Bbox.lazy_iter[16] = 2
-		Bbox.lazy_iter[32] = 2
-		Bbox.lazy_iter[64] = 2
-		Bbox.lazy_iter[128] = 3
-		Bbox.lazy_iter[256] = 3
-		Bbox.lazy_iter[512] = 3
-		Bbox.lazy_iter[1024] = 3
-		Bbox.lazy_iter[2048] = 4
-		Bbox.lazy_iter[4096] = 4
+		if ismod == true {
+			K = K / 2
+		}
 
-		Bbox.carry_iter[16] = 3
-		Bbox.carry_iter[32] = 4
-		Bbox.carry_iter[64] = 5
-		Bbox.carry_iter[128] = 6
-		Bbox.carry_iter[256] = 7
-		Bbox.carry_iter[512] = 8
-		Bbox.carry_iter[1024] = 9
-		Bbox.carry_iter[2048] = 10
-		Bbox.carry_iter[4096] = 11
+		max_digit := B - 1
+		output_digit := K * max_digit * max_digit
+		iter := 0
+		for output_digit >= 2*B-1 {
+			output_digit = output_digit/B + max_digit
+			iter += 1
+		}
+
+		return iter
 	}
 
-	if Bbox.base_bit == 8 {
-		Bbox.lazy_iter[16] = 2
-		Bbox.lazy_iter[32] = 2
-		Bbox.lazy_iter[64] = 2
-		Bbox.lazy_iter[128] = 3
-		Bbox.lazy_iter[256] = 3
-		Bbox.lazy_iter[512] = 3
-		Bbox.lazy_iter[1024] = 3
-		Bbox.lazy_iter[2048] = 4
-		Bbox.lazy_iter[4096] = 4
-
-		Bbox.carry_iter[16] = 3
-		Bbox.carry_iter[32] = 4
-		Bbox.carry_iter[64] = 5
-		Bbox.carry_iter[128] = 6
-		Bbox.carry_iter[256] = 7
-		Bbox.carry_iter[512] = 8
-		Bbox.carry_iter[1024] = 9
-		Bbox.carry_iter[2048] = 10
-		Bbox.carry_iter[4096] = 11
-	}
-
-	Bbox.slice_length = 2 * (Bbox.bit_length / Bbox.base_bit)
-	Bbox.log_slice_half = int(math.Log2(float64((Bbox.bit_length / Bbox.base_bit))))
-}
-
-func (Bbox *Bk_Arithmetic_toolbox) InitModular(bit_length int, base int) {
-
-	Bbox.bit_length = bit_length
-	if bit_length == 16 {
-		Bbox.base_bit = 4
-	} else {
-		Bbox.base_bit = 8
-	}
-
-	Bbox.base_bit = 4
-
-	Bbox.base = 1 << Bbox.base_bit
-
-	Bbox.lazy_iter = make(map[int]int, 9)
-	Bbox.carry_iter = make(map[int]int, 9)
-
-	Bbox.lazy_iter[16] = 2
-	Bbox.lazy_iter[32] = 2
-	Bbox.lazy_iter[64] = 2
-	Bbox.lazy_iter[128] = 3
-	Bbox.lazy_iter[256] = 3
-	Bbox.lazy_iter[512] = 3
-	Bbox.lazy_iter[1024] = 3
-	Bbox.lazy_iter[2048] = 4
-	Bbox.lazy_iter[4096] = 4
-
-	Bbox.carry_iter[16] = 3
-	Bbox.carry_iter[32] = 4
-	Bbox.carry_iter[64] = 5
-	Bbox.carry_iter[128] = 6
-	Bbox.carry_iter[256] = 7
-	Bbox.carry_iter[512] = 8
-	Bbox.carry_iter[1024] = 9
-	Bbox.carry_iter[2048] = 10
-	Bbox.carry_iter[4096] = 11
-
-	Bbox.slice_length = 2 * (Bbox.bit_length / Bbox.base_bit)
-	Bbox.log_slice_half = int(math.Log2(float64((Bbox.bit_length / Bbox.base_bit))))
-}
-
-func (Bbox *Bk_Arithmetic_toolbox) InitCurve25519(base int) {
-
-	Bbox.bit_length = 1024
-	Bbox.base_bit = 5
-	Bbox.base = 1 << Bbox.base_bit
-
-	Bbox.lazy_iter = make(map[int]int, 6)
-	Bbox.carry_iter = make(map[int]int, 6)
-
-	Bbox.lazy_iter[1024] = 3
-	Bbox.carry_iter[1024] = 8
-
-	Bbox.slice_length = 256
-	Bbox.log_slice_half = 7
-}
-
-type Gmn_Arithmetic_toolbox struct {
-	bit_length     int
-	base           int
-	base_bit       int
-	slice_length   int
-	log_slice_half int
-
-	lazy_iter  map[int]int
-	carry_iter map[int]int
-}
-
-func (Gbox *Gmn_Arithmetic_toolbox) Init(bit_length int, base int) {
-
-	Gbox.bit_length = bit_length
-	Gbox.base_bit = 8
-	Gbox.base = 1 << Gbox.base_bit
-
-	Gbox.lazy_iter = make(map[int]int, 6)
-	Gbox.carry_iter = make(map[int]int, 6)
-
-	Gbox.lazy_iter[64] = 2
-	Gbox.lazy_iter[128] = 2
-	Gbox.lazy_iter[256] = 2
-	Gbox.lazy_iter[512] = 2
-	Gbox.lazy_iter[1024] = 2
-	Gbox.lazy_iter[2048] = 3
-
-	Gbox.carry_iter[64] = 4
-	Gbox.carry_iter[128] = 5
-	Gbox.carry_iter[256] = 6
-	Gbox.carry_iter[512] = 7
-	Gbox.carry_iter[1024] = 8
-	Gbox.carry_iter[2048] = 9
-
-	Gbox.slice_length = 2 * (Gbox.bit_length / Gbox.base_bit)
-	Gbox.log_slice_half = int(math.Log2(float64((Gbox.bit_length / Gbox.base_bit))))
+	radix_params.lazy_iter = compute_lazycarry_iter(radix_params.K, radix_params.B, ismod)
 }
 
 type Context struct {

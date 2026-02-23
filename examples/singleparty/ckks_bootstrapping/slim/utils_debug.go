@@ -33,7 +33,6 @@ func ComputePrec(base int, slice_length int, params ckks.Parameters, ciphertext 
 	is_carry := true
 
 	for i := 0; i < params.MaxSlots(); i++ {
-
 		// compute real err
 		real_round := math.Round(real(valuesTest[i]))
 		real := real(valuesTest[i])
@@ -61,18 +60,7 @@ func ComputePrec(base int, slice_length int, params ckks.Parameters, ciphertext 
 		}
 	}
 
-	//fmt.Println("Max Precision(real) :", max_real_err)
-	//fmt.Println("Min Precision(real) :", -1*min_L2_err)
-	//fmt.Println("Avg Noise(real) :", -2*avg_L2_err/float64(len(valuesTest)))
-
-	//fmt.Println(valuesTest[:8])
-	//fmt.Printf("Scale: 2^%f\n", math.Log2(ciphertext.Scale.Float64()))
-	//fmt.Printf("ValuesTest: %10.14f %10.14f %10.14f %10.14f...\n", valuesTest[0], valuesTest[1], valuesTest[2], valuesTest[3])
-	//fmt.Printf("ValuesWant: %10.14f %10.14f %10.14f %10.14f...\n", valuesWant[0], valuesWant[1], valuesWant[2], valuesWant[3])
-
-	//precStats := ckks.GetPrecisionStats(params, encoder, nil, valuesWant, valuesTest, 0, false)
-	fmt.Println("is carry? : ", is_carry)
-	//fmt.Println(precStats.String())
+	fmt.Println("is in [0,B) ? : ", is_carry)
 	fmt.Println()
 
 	return valuesTest, -1 * min_L2_err, -2 * avg_L2_err / float64(len(valuesTest))
@@ -247,6 +235,10 @@ func PrintDebug(slice_length int, params ckks.Parameters, ciphertext *rlwe.Ciphe
 				//fmt.Println(j, real_round)
 			}
 		}
+	}
+
+	for i := slice_length / 2; i < slice_length; i++ {
+		fmt.Println(valuesTest[i])
 	}
 
 	//fmt.Println(min_idx, valuesTest[min_idx])

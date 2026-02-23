@@ -204,8 +204,6 @@ func (eval *Evaluator) initialize(btpParams Parameters) (err error) {
 		eval.SlotsToCoeffsParameters.Scaling = new(big.Float).Mul(btpParams.SlotsToCoeffsParameters.Scaling, StCScaling)
 	}
 
-	fmt.Println("StC Scale : ", eval.SlotsToCoeffsParameters.Scaling)
-	fmt.Println("CtS Scale : ", eval.CoeffsToSlotsParameters.Scaling)
 	if eval.C2SDFTMatrix, err = dft.NewMatrixFromLiteral(params, eval.CoeffsToSlotsParameters, encoder); err != nil {
 		return
 	}

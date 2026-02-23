@@ -289,9 +289,9 @@ func ComputeMaxNorm(A [][]complex128, base int, mod *big.Int) *big.Float {
 	}
 
 	max_float := IntToFloatExact(max_int)
-	fmt.Println("max_int : ", max_int)
-	fmt.Println("mod : ", mod)
-	fmt.Println("max_digit : ", max_coeff)
+	//fmt.Println("max_int : ", max_int)
+	//fmt.Println("mod : ", mod)
+	//fmt.Println("max_digit : ", max_coeff)
 	//fmt.Println("mod_square : ", big.NewInt(1).Mul(mod, mod))
 
 	mod_float := IntToFloatExact(mod)
@@ -311,7 +311,7 @@ func ComputeMaxNorm(A [][]complex128, base int, mod *big.Int) *big.Float {
 		idx -= 1
 	}
 	idx += 1
-	fmt.Println(idx)
+	//fmt.Println(idx)
 
 	max_int = big.NewInt(0.0)
 	basepower = big.NewInt(1)
@@ -342,18 +342,18 @@ func ComputeMaxNorm(A [][]complex128, base int, mod *big.Int) *big.Float {
 	}
 
 	max_float = IntToFloatExact(max_int)
-	fmt.Println("max_int : ", max_int)
-	fmt.Println("mod : ", mod)
-	fmt.Println("max_digit : ", max_coeff)
+	//fmt.Println("max_int : ", max_int)
+	//fmt.Println("mod : ", mod)
+	//fmt.Println("max_digit : ", max_coeff)
 	//fmt.Println("mod_square : ", big.NewInt(1).Mul(mod, mod))
 
 	mod_float = IntToFloatExact(mod)
 	rtn = max_float.Quo(max_float, mod_float)
 
-	fmt.Println("float : ", rtn)
+	//fmt.Println("float : ", rtn)
 
 	decomposed_max_int = DecomposeInt64Base(max_int, int64(base), len(A[0]))
-	fmt.Println(decomposed_max_int)
+	//fmt.Println(decomposed_max_int)
 
 	idx = len(A[0]) - 1
 	for i := 0; i < len(A[0]); i++ {
@@ -364,7 +364,7 @@ func ComputeMaxNorm(A [][]complex128, base int, mod *big.Int) *big.Float {
 		idx -= 1
 	}
 	idx += 1
-	fmt.Println(idx)
+	//fmt.Println(idx)
 
 	max_int = big.NewInt(0.0)
 	basepower = big.NewInt(1)
@@ -395,15 +395,15 @@ func ComputeMaxNorm(A [][]complex128, base int, mod *big.Int) *big.Float {
 	}
 
 	max_float = IntToFloatExact(max_int)
-	fmt.Println("max_int : ", max_int)
-	fmt.Println("mod : ", mod)
-	fmt.Println("max_digit : ", max_coeff)
+	//fmt.Println("max_int : ", max_int)
+	//fmt.Println("mod : ", mod)
+	//fmt.Println("max_digit : ", max_coeff)
 	//fmt.Println("mod_square : ", big.NewInt(1).Mul(mod, mod))
 
 	mod_float = IntToFloatExact(mod)
 	rtn = max_float.Quo(max_float, mod_float)
 
-	fmt.Println("float : ", rtn)
+	//fmt.Println("float : ", rtn)
 
 	return rtn
 }

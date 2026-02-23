@@ -47,7 +47,7 @@ func warmupCPU(duration time.Duration) {
 	fmt.Println("Warm-up complete.")
 }
 
-func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
+func Test_Bk_arthmetic_B16(radix_params RParams, setting bool) {
 
 	//==============================================
 	//=== 0) Set Large CKKS paramter  ==============
@@ -61,12 +61,12 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 
 	// Default LogN, which with the following defined parameters
 	// provides a security of 128-bit.
-	LogN := 13
+	LogN := 16
 
-	bit_length := Bbox.bit_length
-	base := Bbox.base
+	bit_length := radix_params.bit_length
+	base := radix_params.B
 	//base_bit := Bbox.base_bit
-	slice_length := Bbox.slice_length
+	slice_length := radix_params.slice_length
 	//log_slice_half := Bbox.log_slice_half
 
 	var LogDefaultScale int
@@ -78,25 +78,16 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 	// SAFE-Guard for overflow
 	q0 := []int{52, 48}
 	qiSlotsToCoeffs := []int{48, 48, 48}
-	qiCircuits := []int{48, 48, 55, 48, 55}
+	qiCircuits := []int{55, 48, 55}
+	for i := 0; i < radix_params.lazy_iter; i++ {
+		qiCircuits = append([]int{48}, qiCircuits...)
+	}
 
 	var qiLookUpTable []int
-	if Bbox.base_bit == 4 {
-		qiLookUpTable = []int{48, 48, 48, 48, 48, 48}
-	} else {
-		qiLookUpTable = []int{48, 48, 48, 48, 48, 48, 48, 48, 48, 48}
-	}
+	qiLookUpTable = []int{48, 48, 48, 48, 48, 48}
 
 	qiEvalMod := []int{52, 52, 52, 52, 52, 52, 52, 52}
 	qiCoeffsToSlots := []int{52, 52, 52}
-
-	// Additonal modulus for bit length
-	if 128 <= Bbox.bit_length {
-		qiCircuits = append([]int{48}, qiCircuits...)
-	}
-	if 2048 <= Bbox.bit_length {
-		qiCircuits = append([]int{48}, qiCircuits...)
-	}
 
 	LogQ = append(q0, qiSlotsToCoeffs...)
 	LogQ = append(LogQ, qiCircuits...)
@@ -251,12 +242,12 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 	//==============================================
 
 	batch := int(float64(params.MaxSlots()) / float64(slice_length))
-	fmt.Printf("Large Integer parameter : bit_length=%d, batch=%d, lazycarry_iter=%d, carry_iter=%d", bit_length, batch, Bbox.lazy_iter[bit_length], Bbox.carry_iter[bit_length])
+	fmt.Printf("Large Integer parameter : bit_length=%d, batch=%d, lazycarry_iter=%d, carry_iter=%d", bit_length, batch, radix_params.lazy_iter, radix_params.logK)
 	fmt.Println()
 	fmt.Println()
 
 	fmt.Printf("make DFT matrix...")
-	if file, _ := FileExists("DFT_" + strconv.Itoa(slice_length)); file == false {
+	if file, _ := FileExists("precom/DFT_" + strconv.Itoa(slice_length) + "B16"); file == false {
 		// Generate FFT matrix
 		Normalized_DFT := GenerateSpecialNormalizedDFT(slice_length)
 		//Normalized_DFT = MatrixPadding(Normalized_DFT, slice_length, params.MaxSlots())
@@ -272,7 +263,7 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 
 		Plain_DFT := BSGS_plain_Gen(params, slice_length, batch, Lv-1, Diag_DFT, cc)
 
-		if err := SavePlaintextMap("DFT_"+strconv.Itoa(slice_length), Plain_DFT); err != nil {
+		if err := SavePlaintextMap("precom/DFT_"+strconv.Itoa(slice_length)+"B16", Plain_DFT); err != nil {
 			panic(err)
 		}
 
@@ -283,9 +274,9 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 		runtime.GC()
 	}
 
-	Plain_DFT, err := LoadPlaintextMap("DFT_"+strconv.Itoa(slice_length), params)
+	Plain_DFT, err := LoadPlaintextMap("precom/DFT_"+strconv.Itoa(slice_length)+"B16", params)
 
-	if file, _ := FileExists("InvDFT_" + strconv.Itoa(slice_length)); file == false {
+	if file, _ := FileExists("precom/InvDFT_" + strconv.Itoa(slice_length) + "B16"); file == false {
 		InvDFT := GenerateNormalizedInvDFT_with_masking(slice_length)
 		//InvDFT = MatrixPadding(InvDFT, slice_length, params.MaxSlots())
 		Twisted_InvDFT := TwistedMatrix(InvDFT, slice_length, params.MaxSlots())
@@ -297,7 +288,7 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 
 		Plain_InvDFT := BSGS_plain_Gen(params, slice_length, batch, Lv-3, Diag_InvDFT, cc)
 
-		if err := SavePlaintextMap("InvDFT_"+strconv.Itoa(slice_length), Plain_InvDFT); err != nil {
+		if err := SavePlaintextMap("precom/InvDFT_"+strconv.Itoa(slice_length)+"B16", Plain_InvDFT); err != nil {
 			panic(err)
 		}
 
@@ -309,19 +300,23 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 	}
 	fmt.Println("Done!")
 
-	Plain_InvDFT, err := LoadPlaintextMap("InvDFT_"+strconv.Itoa(slice_length), params)
+	Plain_InvDFT, err := LoadPlaintextMap("precom/InvDFT_"+strconv.Itoa(slice_length)+"_B16", params)
+
+	if setting == true {
+		return
+	}
 
 	//==============================================
 	//=== 2) Mult Large Integer : MultPoly =========
 	//==============================================
 
-	iter_num := 1
+	iter_num := 5
 	lazy_time := make([]float64, iter_num)
 	exact_time := make([]float64, iter_num)
 	min_err := make([]float64, iter_num)
 	avg_err := make([]float64, iter_num)
 
-	warmupCPU(30 * time.Second)
+	//warmupCPU(30 * time.Second)
 	fmt.Println("=== Multiplication Start ===")
 	for i := 0; i < iter_num; i++ {
 
@@ -449,13 +444,13 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 		var ciphertext *rlwe.Ciphertext
 
 		// lazy mult
-		ciphertext = LazyMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, Bbox, cc)
+		ciphertext = LazyMult(ciphertext1, ciphertext2, Plain_DFT, Plain_InvDFT, radix_params, cc)
 		lazy_elapsed := time.Since(mult_time)
 		fmt.Println("lazy time : ", lazy_elapsed)
 		//PrintDebug(slice_length, params, ciphertext, valuesWant, decryptor, encoder)
 
 		// excat mult
-		ciphertext = LazyCarry2Carry(ciphertext, Bbox, cc)
+		ciphertext = LazyCarry2Carry(ciphertext, radix_params, cc)
 
 		total_elapsed := time.Since(mult_time)
 		fmt.Println("exact time : ", total_elapsed)
@@ -522,7 +517,6 @@ func Test_Bk_arthmetic(Bbox Bk_Arithmetic_toolbox) {
 
 		lazy_time[i] = float64(lazy_elapsed.Seconds())
 		exact_time[i] = float64(total_elapsed.Seconds())
-
 		_, min, avg := ComputePrec(base, slice_length, params, ciphertext, valuesWant, decryptor, encoder)
 
 		min_err[i] = min

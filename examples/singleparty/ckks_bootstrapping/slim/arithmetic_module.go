@@ -12,7 +12,7 @@ import (
 	"github.com/tuneinsight/lattigo/v6/schemes/ckks"
 )
 
-func PolyMult(ctxt1 *rlwe.Ciphertext, ctxt2 *rlwe.Ciphertext, Diag_DFT map[int]*rlwe.Plaintext, Diag_InvDFT map[int]*rlwe.Plaintext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func PolyMult(ctxt1 *rlwe.Ciphertext, ctxt2 *rlwe.Ciphertext, Diag_DFT map[int]*rlwe.Plaintext, Diag_InvDFT map[int]*rlwe.Plaintext, Bbox RParams, cc Context) *rlwe.Ciphertext {
 	slice_length := Bbox.slice_length
 	params := cc.params
 	eval := cc.eval
@@ -46,7 +46,7 @@ func PolyMult(ctxt1 *rlwe.Ciphertext, ctxt2 *rlwe.Ciphertext, Diag_DFT map[int]*
 	return ctxt
 }
 
-func PolyCMult(ctxt1 *rlwe.Ciphertext, DFT_ptxt *rlwe.Plaintext, Diag_DFT map[int]*rlwe.Plaintext, Diag_InvDFT map[int]*rlwe.Plaintext, Bbox Bk_Arithmetic_toolbox, cc Context) *rlwe.Ciphertext {
+func PolyCMult(ctxt1 *rlwe.Ciphertext, DFT_ptxt *rlwe.Plaintext, Diag_DFT map[int]*rlwe.Plaintext, Diag_InvDFT map[int]*rlwe.Plaintext, Bbox RParams, cc Context) *rlwe.Ciphertext {
 	slice_length := Bbox.slice_length
 	params := cc.params
 	eval := cc.eval
