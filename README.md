@@ -1,4 +1,6 @@
 # Improved Radix-based Approximate Homomorphic Encryption for Large Integers via Lightweight Bootstrapped Digit Carry
+### Update Logs
+- 2026.03.24 : The code failed to run correctly due to a typo in the filename when loading precomputed plaintexts. The filename has been corrected.
 
 ### 0. Acknowledgement
 Some of the helper functions, particularly those in \texttt{util\_XXX.go}, were written with the assistance of ChatGPT.
