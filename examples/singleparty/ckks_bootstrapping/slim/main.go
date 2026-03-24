@@ -60,7 +60,7 @@ func main() {
 
 		var Bbox RParams
 		Bbox.Init(false, bit_length, logbase)
-		break
+
 		fmt.Println("=======================================================")
 		fmt.Printf("============ Bk arithmetic Test : %d bit ============\n", bit_length)
 		fmt.Println("=======================================================")

@@ -300,7 +300,7 @@ func Test_Bk_arthmetic_B16(radix_params RParams, setting bool) {
 	}
 	fmt.Println("Done!")
 
-	Plain_InvDFT, err := LoadPlaintextMap("precom/InvDFT_"+strconv.Itoa(slice_length)+"_B16", params)
+	Plain_InvDFT, err := LoadPlaintextMap("precom/InvDFT_"+strconv.Itoa(slice_length)+"B16", params)
 
 	if setting == true {
 		return
