@@ -46,9 +46,9 @@ var flagShort = flag.Bool("short", false, "run the example with a smaller and in
 
 func main() {
 
-	// Set setting = false to pre-generate the required plaintexts.
-	// After that, set setting = true and run the benchmark/experiments.
-	setting := false
+	// Set setting = true to pre-generate the required plaintexts.
+	// After that, set setting = false and run the benchmark/experiments.
+	setting := true
 
 	// PolyMult for Bk arithmetic!
 	Test_Bk_bit_length := []int{16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
